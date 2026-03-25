@@ -55,10 +55,23 @@ Pick a local Git repo, choose a branch and optional date range, then **Analyze v
 ## Build
 
 ```bash
+npm install
 npm run build
 ```
 
-Produces renderer + main bundles and a **Windows installer** under `release/<version>/` (e.g. `VelocoRepo_<version>.exe`).
+Runs TypeScript, Vite, and **electron-builder** with `--publish never` (installers are not auto-published to GitHub from the CLI). Artifacts land under `release/<version>/` (e.g. Windows `.exe`, macOS `.dmg`/`.zip`, Linux `.AppImage`).
+
+`npm run dist` is the same as `npm run build` (included for parity with other projects in this workspace).
+
+### GitHub Releases (tag workflow)
+
+Pushing a tag **`v*`** runs [`.github/workflows/release.yml`](.github/workflows/release.yml): it builds on **Windows, macOS, and Linux**, checks that **`package.json` `version`** matches the tag (e.g. tag `v0.2.0` requires `"version": "0.2.0"`), uploads installers as artifacts, and creates a **GitHub Release** with those files—same pattern as [Bucketeer’s release workflow](https://github.com/liamwhan/Bucketeer/blob/main/.github/workflows/release.yml).
+
+```bash
+# bump version in package.json, then:
+git tag v0.2.0
+git push origin v0.2.0
+```
 
 ---
 

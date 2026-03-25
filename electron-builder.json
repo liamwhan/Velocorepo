@@ -33,5 +33,11 @@
     "perMachine": false,
     "allowToChangeInstallationDirectory": true,
     "deleteAppDataOnUninstall": false
-  }
+  },
+  "linux": {
+    "target": ["AppImage"],
+    "category": "Development",
+    "artifactName": "${productName}_${version}.${ext}"
+  },
+  "publish": null
 }
