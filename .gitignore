@@ -24,8 +24,7 @@ release
 *.sln
 *.sw?
 
-#lockfile
-package-lock.json
+# Commit package-lock.json for reproducible CI (npm ci). Ignore other managers if present.
 pnpm-lock.yaml
 yarn.lock
 /test-results/
