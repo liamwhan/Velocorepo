@@ -1,7 +1,7 @@
 {
   "name": "velocorapid",
   "productName": "VelocoRepo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "main": "dist-electron/main/index.js",
   "description": "VelocoRepo — git commit velocity analytics (read-only).",
   "author": "Liam Whan",
