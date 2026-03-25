@@ -30,34 +30,42 @@ function parseRollingInput(text: string): number | null {
   return Math.min(365, Math.max(1, n))
 }
 
-function attachChangepointMarkLine(
+/** Not listed in `legend.data` — carries only the shift markLine so visibility is independent of Net. */
+const SHIFT_MARK_SERIES = '__shiftMark'
+
+function addShiftMarkLineSeries(
   series: NonNullable<EChartsOption['series']>,
   dates: string[],
   splitIndex: number | null,
   show: boolean,
 ) {
+  if (!Array.isArray(series))
+    return
   if (!show || splitIndex === null || splitIndex < 0 || splitIndex >= dates.length)
     return
   const x = dates[splitIndex]
-  const list = Array.isArray(series) ? series : [series]
-  for (const s of list) {
-    if (s && typeof s === 'object' && 'name' in s && s.name === 'Net') {
-      Object.assign(s as Record<string, unknown>, {
-        markLine: {
-          symbol: ['none', 'none'],
-          lineStyle: { color: '#fbbf24', width: 2 },
-          label: {
-            show: true,
-            formatter: 'Shift',
-            color: '#fbbf24',
-            fontSize: 11,
-          },
-          data: [{ xAxis: x }],
-        },
-      })
-      break
-    }
-  }
+  series.push({
+    name: SHIFT_MARK_SERIES,
+    type: 'line',
+    yAxisIndex: 0,
+    data: dates.map(() => 0),
+    showSymbol: false,
+    lineStyle: { width: 0, opacity: 0 },
+    silent: true,
+    tooltip: { show: false },
+    z: 10,
+    markLine: {
+      symbol: ['none', 'none'],
+      lineStyle: { color: '#fbbf24', width: 2 },
+      label: {
+        show: true,
+        formatter: 'Shift',
+        color: '#fbbf24',
+        fontSize: 11,
+      },
+      data: [{ xAxis: x }],
+    },
+  })
 }
 
 export function VelocityChart({ daily }: Props) {
@@ -162,11 +170,10 @@ export function VelocityChart({ daily }: Props) {
   const trendLineName = `Linear trend (${trendBasis})`
   const ewmaLineName = `EWMA (${trendBasis})`
 
-  const option: EChartsOption = useMemo(() => {
+  const legendData = useMemo(() => {
     const baseLegend = combineInsDel
       ? ['|insertions| + |deletions|', 'Net']
       : ['Insertions', 'Deletions', 'Net']
-
     const extraLegend: string[] = []
     if (showRolling && rollingSeriesName)
       extraLegend.push(rollingSeriesName)
@@ -174,8 +181,51 @@ export function VelocityChart({ daily }: Props) {
       extraLegend.push(trendLineName)
     if (showEwma && daily.length >= 1)
       extraLegend.push(ewmaLineName)
+    return [...baseLegend, ...extraLegend]
+  }, [
+    combineInsDel,
+    showRolling,
+    rollingSeriesName,
+    showLinearTrend,
+    daily.length,
+    showEwma,
+    trendLineName,
+    ewmaLineName,
+  ])
 
-    const legendData = [...baseLegend, ...extraLegend]
+  /** Keeps legend toggles when option is replaced (e.g. EWMA slider). */
+  const [legendSelected, setLegendSelected] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    setLegendSelected((prev) => {
+      const next = { ...prev }
+      for (const name of legendData) {
+        if (!(name in next))
+          next[name] = true
+      }
+      for (const k of Object.keys(next)) {
+        if (!legendData.includes(k))
+          delete next[k]
+      }
+      return next
+    })
+  }, [legendData])
+
+  const legendSelectedForOption = useMemo(() => {
+    const o: Record<string, boolean> = {}
+    for (const name of legendData) {
+      o[name] = legendSelected[name] !== false
+    }
+    return o
+  }, [legendData, legendSelected])
+
+  const onLegendSelectChanged = useCallback((params: unknown) => {
+    const p = params as { selected?: Record<string, boolean> }
+    if (p?.selected)
+      setLegendSelected(p.selected)
+  }, [])
+
+  const option: EChartsOption = useMemo(() => {
 
     const trendOnSecondAxis = trendBasis === 'churn'
 
@@ -268,7 +318,7 @@ export function VelocityChart({ daily }: Props) {
     const series: EChartsOption['series'] = [...baseSeries, ...extraSeries]
 
     const cpIdx = changepoint?.splitIndex ?? null
-    attachChangepointMarkLine(
+    addShiftMarkLineSeries(
       series,
       dates,
       showChangepoint ? cpIdx : null,
@@ -281,6 +331,7 @@ export function VelocityChart({ daily }: Props) {
       tooltip: { trigger: 'axis' },
       legend: {
         data: legendData,
+        selected: legendSelectedForOption,
         textStyle: { color: '#a1a1aa' },
         top: 0,
         type: 'scroll',
@@ -340,6 +391,8 @@ export function VelocityChart({ daily }: Props) {
     trendLineName,
     ewmaLineName,
     trendBasis,
+    legendData,
+    legendSelectedForOption,
   ])
 
   function getInstance() {
@@ -526,6 +579,7 @@ export function VelocityChart({ daily }: Props) {
           lazyUpdate={false}
           style={{ height: 420, width: '100%' }}
           opts={{ renderer: 'canvas' }}
+          onEvents={{ legendselectchanged: onLegendSelectChanged }}
         />
       </div>
     </div>
